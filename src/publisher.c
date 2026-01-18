@@ -4,12 +4,47 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-#define PORT 5000
+int main(int argc, char **argv) {
 
-int main() {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <ip> <port>\n", argv[0]);
+        exit(1);
+    }
+
+    char* topic;
+    char path[1024];
+    char text[1024];
+
+    printf("Enter configuration file path: ");
+    fgets(path, 1024, stdin);
+    path[strcspn(path, "\n")] = 0;
+    
+    FILE *config = fopen(path, "r");
+    if (!config) {
+        fprintf(stderr, "Error opening file: No such file or directory!\n");
+        exit(1);
+    }
+
+    fgets(text, 1024, config);
+    char* data = strchr(text, ':');
+    data++;
+    data[strcspn(data, "\n")] = 0;
+
+    if (!strcmp("publisher", data)) {
+        fgets(text, 1024, config);
+        data = strchr(text, ':');
+        data++;
+        topic = strdup(data);
+    } else {
+        fprintf(stderr, "Error: Configuration type mismatch. Expected 'publisher', got '%s'!\n", data);
+        exit(1);
+    }
+
+    printf("topic= %s\n", topic);
+
+    fclose(config);
 
     int sock;
-    //char* msg = malloc(1024 * sizeof(char));
     char msg[1024];
     struct sockaddr_in subaddr;
 
@@ -18,8 +53,8 @@ int main() {
     memset(&subaddr, 0, sizeof(subaddr));
 
     subaddr.sin_family = AF_INET;
-    subaddr.sin_port = htons(PORT);
-    inet_pton(AF_INET, "127.0.0.1", &subaddr.sin_addr);
+    subaddr.sin_port = htons(atoi(argv[2]));
+    inet_pton(AF_INET, argv[1], &subaddr.sin_addr);
 
     while(1) {
 
