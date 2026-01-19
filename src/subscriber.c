@@ -1,11 +1,55 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <arpa/inet.h>
 
 #define MAX_TOPICS 3
 #define TOPIC_SIZE 128
+#define TEXT_SIZE 1024
+
+volatile bool subscriber_active = false; 
+volatile bool running = true;
+
+// ?
+typedef struct {
+    int sock;
+} ThreadData;
+
+void *thread_msgs(void *arg) {
+
+    struct sockaddr_in pubaddr;
+    memset(&pubaddr, 0, sizeof(pubaddr));
+
+    ThreadData *data = (ThreadData *)arg;
+
+    while (running) {
+        
+        char buffer[1024];
+        
+        int len = sizeof(pubaddr); 
+        int n;
+
+        n = recvfrom(data->sock, (char *)buffer, 1024, 
+                    MSG_WAITALL, (struct sockaddr *) &pubaddr, 
+                    (socklen_t*)&len);
+        
+        buffer[n] = '\0';
+        printf("Msg: %s\n", buffer);
+        
+        if (subscriber_active) {
+            // Verifica se ta inscrito e trata
+            printf("ok\n");
+        } else {
+            // Ignora
+            printf("continue\n");
+        }
+    }
+    
+    return NULL;
+}
 
 int main(int argc, char **argv) {
 
@@ -16,16 +60,16 @@ int main(int argc, char **argv) {
 
     int num_topics = 0;
     char** topics = malloc(sizeof(char*));
-    char path[1024];
+    char config_path[1024];
     char text[1024];
 
     printf("Enter configuration file path: ");
-    fgets(path, 1024, stdin);
-    path[strcspn(path, "\n")] = 0;
+    fgets(config_path, 1024, stdin);
+    config_path[strcspn(config_path, "\n")] = 0;
     
-    FILE *config = fopen(path, "r");
+    FILE *config = fopen(config_path, "r");
     if (!config) {
-        fprintf(stderr, "Error opening file: No such file or directory!\n");
+        perror("Error opening file");
         exit(1);
     }
 
@@ -38,8 +82,9 @@ int main(int argc, char **argv) {
         fgets(text, 1024, config);
         data = strchr(text, ':');
         data++;
-        while(num_topics < 3) {
-            char *aux = strchr(data, ',');
+        char *aux;
+        while(num_topics < MAX_TOPICS) {
+            aux = strchr(data, ',');
             if (aux)
                 *aux = '\0';
             topics[num_topics] = strdup(data);
@@ -47,9 +92,12 @@ int main(int argc, char **argv) {
             if (!aux)
                 break;
             data = ++aux;
-        }   
+        } 
+        if (aux)
+            printf("File contains more than 3 topics. Excess topics skipped.\n");
+
     } else {
-        fprintf(stderr, "Error: Configuration type mismatch. Expected 'subscriber', got '%s'!\n", data);
+        fprintf(stderr, "Configuration type mismatch. Expected 'subscriber', got '%s'!\n", data);
         exit(1);
     }
 
@@ -59,34 +107,61 @@ int main(int argc, char **argv) {
         printf("topic= %s\n", topics[i]);
 
     int sock;
-    char buffer[1024];
-    struct sockaddr_in subaddr, pubaddr;
-
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
-
+    struct sockaddr_in subaddr;
     memset(&subaddr, 0, sizeof(subaddr));
-    memset(&pubaddr, 0, sizeof(pubaddr));
+
+    if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("Failed to create socket");
+        exit(1);
+    }
 
     subaddr.sin_family = AF_INET;
     subaddr.sin_port = htons(atoi(argv[1]));
     inet_pton(AF_INET, "127.0.0.1", &subaddr.sin_addr);
 
-    bind(sock, (struct sockaddr *)&subaddr, sizeof(subaddr));
-    
-    printf("Subscriber esperando dados na porta %d...\n", atoi(argv[1]));
+    if ((bind(sock, (struct sockaddr *)&subaddr, sizeof(subaddr))) < 0) {
+        perror("Failed to bind socket");
+        exit(1);
+    }
 
-    while(1) {
+    pthread_t id_thread;
+    ThreadData *args = malloc(sizeof(ThreadData));
+    args->sock = sock;
 
-        int len = sizeof(pubaddr); 
-        int n;
+    if (pthread_create(&id_thread, NULL, thread_msgs, (void *)args) != 0) {
+        perror("Failed to create thread");
+        return 1;
+    }
 
-        n = recvfrom(sock, (char *)buffer, 1024, 
-                    MSG_WAITALL, (struct sockaddr *) &pubaddr, 
-                    (socklen_t*)&len);
+    int option = 0;
+
+    while (running) {
+        printf("\n--- SUBSCRIBER MENU ---\n");
+        printf("Current status: %s\n", subscriber_active ? "ACTIVE" : "INACTIVE");
+        printf("1. Activate\n");
+        printf("2. Desactivate\n");
+        printf("3. Exit\n");
+        printf("Choice: ");
         
-        buffer[n] = '\0';
-        printf("Mensagem recebida: %s\n", buffer);
+        scanf("%d", &option);
 
+        switch (option) {
+            case 1:
+                subscriber_active = true;
+                printf(">> Subscriber ACTIVATED.\n");
+                break;
+            case 2:
+                subscriber_active = false;
+                printf(">> Subscriber DESACTIVATED.\n");
+                break;
+            case 3:
+                printf("Exiting...\n");
+                running = false; 
+                break;
+            default:
+                printf("Invalid option.\n");
+                break;
+        }
     }
 
     close(sock);

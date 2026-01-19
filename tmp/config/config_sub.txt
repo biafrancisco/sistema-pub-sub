@@ -1,2 +1,2 @@
 role:subscriber
-topics:/home/living_room/lamp_1,/home/living_room/lamp_2,/home/garage/main_door
+topics:/home/living_room/lamp_1,/home/living_room/lamp_2,/home/garage/main_door,/home/garage/back_door
