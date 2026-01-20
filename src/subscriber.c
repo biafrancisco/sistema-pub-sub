@@ -1,16 +1,15 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <pthread.h>
-#include <arpa/inet.h>
 #include "utils.h"
 #include "logger.h"
 
 #define MAX_TOPICS 3
 #define TOPIC_SIZE 128
 #define TEXT_SIZE 1024
+#define LOG_SIZE (3 * TEXT_SIZE) 
+
+#define LOG_PATH "../tmp/log/sub_log.txt"
 
 volatile bool subscriber_active = false; 
 volatile bool running = true;
@@ -22,10 +21,13 @@ typedef struct {
     char **topics;
 } ThreadData;
 
+// Show menu options
 void print_menu();
 
+// Load topics from configuration file
 char **get_topics(int *num_topics, FILE *config_file);
 
+// Thread function
 void *thread_msgs(void *arg) {
 
     struct sockaddr_in pubaddr;
@@ -33,21 +35,24 @@ void *thread_msgs(void *arg) {
 
     ThreadData *thread_data = (ThreadData *)arg;
 
+    char log_msg[LOG_SIZE];
+
     while (running) {
         
         char buffer[1024];
-
+        // Receive UDP message
         int len = sizeof(pubaddr); 
         int n = recvfrom(thread_data->sock, (char *)buffer, 1024, 
                 MSG_WAITALL, (struct sockaddr *) &pubaddr, (socklen_t*)&len);
         buffer[n] = '\0';
 
-        
+        // Check subscriber status
         if (subscriber_active) {
             char * data = strchr(buffer, ':');
             *data = '\0';
             data++;
 
+            // Check if subscriber is subscribed to the topic
             int id = 0;
             while(id < thread_data->num_topics) {
                 if (!strcmp(buffer, thread_data->topics[id]))
@@ -55,8 +60,10 @@ void *thread_msgs(void *arg) {
                 id++;
             }
 
+            // Handle message
             if (id < thread_data->num_topics) {
-                printf("\n\nTopic %s changed from %s to %s\n", thread_data->topics[id], current_status[id], data);
+                sprintf(log_msg, "\n\nTopic %s changed from %s to %s", thread_data->topics[id], current_status[id], data);
+                log_message(LOG_PATH, "INFO", log_msg);
                 strcpy(current_status[id], data);   
                 print_menu();
             }
@@ -73,18 +80,21 @@ int main(int argc, char **argv) {
     }
 
     int num_topics = 0;
-    char config_path[1024];
-    char text[1024];
+    char log_msg[LOG_SIZE];
 
-    FILE *config_file = open_config_file();
+    // Initialize application configuration
+    FILE *config_file = open_config_file(LOG_PATH);
 
     char *role = get_config_role(config_file);
 
+    // Validate the role
     if (strcmp("subscriber", role)) {
-        fprintf(stderr, "Configuration type mismatch. Expected 'subscriber', got '%s'!\n", role);
+        sprintf(log_msg, "Configuration type mismatch. Expected 'subscriber', got '%s'!", role);
+        log_message(LOG_PATH, "INFO", log_msg);
         exit(1);
     }
 
+    // Get topics
     char **topics = get_topics(&num_topics, config_file);
 
     fclose(config_file);
@@ -92,21 +102,25 @@ int main(int argc, char **argv) {
     char status_path[num_topics][TEXT_SIZE];
     current_status = (char**) malloc(num_topics * sizeof(char*));
 
+    log_message(LOG_PATH, "INFO", "\nSubscribed topics:");
+        
+    // Map status file paths for all topics
     for (int i = 0; i < num_topics; i++) {
         map_topic_to_filepath(status_path[i], topics[i]);
         current_status[i] = (char*) malloc(TEXT_SIZE * sizeof(char));
-        printf("topic= %s\n", topics[i]);
-        //printf("status= %s\n", status_path[i]);
+        log_message(LOG_PATH, "INFO", topics[i]);
     }
 
+    // Configure socket
     struct sockaddr_in subaddr;
-    int sock = setup_udp_socket("127.0.0.1", atoi(argv[1]), &subaddr);
+    int sock = setup_udp_socket("127.0.0.1", atoi(argv[1]), &subaddr, LOG_PATH);
 
     if ((bind(sock, (struct sockaddr *)&subaddr, sizeof(subaddr))) < 0) {
-        perror("Failed to bind socket");
+        log_message(LOG_PATH, "ERROR", "Failed to bind socket");
         exit(1);
     }
 
+    // Create thread to handle messages
     pthread_t id_thread;
     ThreadData args;
     args.sock = sock;
@@ -114,9 +128,11 @@ int main(int argc, char **argv) {
     args.topics = topics;
 
     if (pthread_create(&id_thread, NULL, thread_msgs, (void *)&args) != 0) {
-        perror("Failed to create thread");
+        log_message(LOG_PATH, "ERROR", "Failed to create thread");
         exit(1);
     }
+
+    log_message(LOG_PATH, "LOG", "\nSubscriber initialized successfully!");
 
     int option = 0;
 
@@ -128,21 +144,24 @@ int main(int argc, char **argv) {
 
         switch (option) {
             case 1:
+                // Get current status for all topics
                 for (int i = 0; i < num_topics; i++) 
                     get_current_status(status_path[i], current_status[i]);
 
                 subscriber_active = true;
-                printf(">> Subscriber ACTIVATED.\n");
-
+                log_message(LOG_PATH, "INFO", "Subscriber ACTIVATED");
                 break;
+
             case 2:
                 subscriber_active = false;
-                printf(">> Subscriber DESACTIVATED.\n");
+                log_message(LOG_PATH, "INFO", "Subscriber DESACTIVATED");
                 break;
+
             case 3:
                 printf("Exiting...\n");
                 running = false; 
                 break;
+
             default:
                 printf("Invalid option.\n");
                 break;
@@ -150,6 +169,9 @@ int main(int argc, char **argv) {
     }
 
     close(sock);
+
+    log_message(LOG_PATH, "LOG", "\nSubscriber shutdown complete!\n\n");
+
     return 0;
 }
 
@@ -186,7 +208,7 @@ char **get_topics(int *num_topics, FILE *config_file) {
         data = ++aux;
     } 
     if (aux)
-        printf("File contains more than 3 topics. Excess topics skipped.\n");
+        log_message(LOG_PATH, "INFO", "File contains more than 3 topics. Excess topics skipped.");
 
     return topics;
 }

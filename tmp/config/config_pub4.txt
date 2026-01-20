@@ -1,0 +1,2 @@
+role:publisher
+topic:/home/living_room/lamp_3

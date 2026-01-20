@@ -1,0 +1,38 @@
+Error opening configuration file
+Configuration type mismatch. Expected 'publisher', got 'subscriber'!
+
+Publisher initialized successfully!
+
+Topic /home/living_room/lamp_2 changed from OFF to ON
+
+Topic /home/living_room/lamp_2 changed from ON to OFF
+
+Topic /home/living_room/lamp_2 changed from OFF to ON
+
+Publisher shutdown complete
+
+
+
+Publisher initialized successfully!
+
+Topic /home/garage/main_door changed from CLOSED to OPEN
+
+Publisher shutdown complete
+
+
+
+Publisher initialized successfully!
+
+Topic /home/living_room/lamp_1 changed from Unknown to ON
+
+Publisher shutdown complete
+
+
+
+Publisher initialized successfully!
+
+Topic /home/living_room/lamp_3 changed from Unknown to OFF
+
+Publisher shutdown complete
+
+

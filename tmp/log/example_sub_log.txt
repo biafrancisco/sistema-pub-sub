@@ -1,0 +1,26 @@
+File contains more than 3 topics. Excess topics skipped.
+
+Subscribed topics:
+/home/living_room/lamp_1
+/home/living_room/lamp_2
+/home/garage/main_door
+
+Subscriber initialized successfully!
+
+Subscriber ACTIVATED
+
+Topic /home/living_room/lamp_2 changed from OFF to ON
+
+Subscriber DESACTIVATED
+
+Subscriber ACTIVATED
+
+Topic /home/living_room/lamp_2 changed from OFF to ON
+
+Topic /home/garage/main_door changed from CLOSED to OPEN
+
+Topic /home/living_room/lamp_1 changed from Unknown to ON
+
+Subscriber shutdown complete!
+
+

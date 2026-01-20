@@ -1,6 +1,7 @@
 #include "utils.h"
 
-FILE *open_config_file() {
+// Open and return configuration file
+FILE *open_config_file(char *log_path) {
 
     char config_path[TEXT_SIZE];
 
@@ -10,13 +11,14 @@ FILE *open_config_file() {
     
     FILE *config_file = fopen(config_path, "r");
     if (!config_file) {
-        perror("Error opening file");
+        log_message(log_path, "ERROR", "Error opening configuration file");
         exit(1);
     }
 
     return config_file;
 }
 
+// Get role from configuration file
 char *get_config_role(FILE *config_file) {
 
     char text[TEXT_SIZE];
@@ -29,27 +31,30 @@ char *get_config_role(FILE *config_file) {
     return role;
 }
 
-int setup_udp_socket(const char *ip, int port, struct sockaddr_in *addr) {
+// Set up UDP socket
+int setup_udp_socket(const char *ip, int port, struct sockaddr_in *addr, char *log_path) {
 
+    // Create socket
     int sock;
-
     if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        perror("Failed to create socket");
+        log_message(log_path, "ERROR", "Failed to create socket");
         exit(-1); 
     }
 
+    // Initialize addr struct
     memset(addr, 0, sizeof(*addr));
     addr->sin_family = AF_INET;
     addr->sin_port = htons(port);
     
     if (inet_pton(AF_INET, ip, &addr->sin_addr) <= 0) {
-        perror("Invalid address/ Address not supported");
+        log_message(log_path, "ERROR", "Invalid address/ Address not supported");
         exit(-1);
     }
 
     return sock;
 }
 
+// Map topic to status filepath
 void map_topic_to_filepath(char path[], char topic[]) {
     
     sprintf(path, "../tmp/status%s.txt", topic);
@@ -60,6 +65,7 @@ void map_topic_to_filepath(char path[], char topic[]) {
     }
 }
 
+// Load current topic status
 void get_current_status(char path[], char current_status[]) {
     
     FILE *status_file = fopen(path, "r");

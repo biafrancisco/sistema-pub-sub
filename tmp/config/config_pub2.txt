@@ -1,0 +1,2 @@
+role:publisher
+topic:/home/garage/main_door
