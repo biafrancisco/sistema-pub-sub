@@ -9,7 +9,7 @@
 #define TEXT_SIZE 1024
 #define LOG_SIZE (3 * TEXT_SIZE) 
 
-#define LOG_PATH "../tmp/log/sub_log.txt"
+#define LOG_PATH "./tmp/log/sub_log.txt"
 
 volatile bool subscriber_active = false; 
 volatile bool running = true;
@@ -169,6 +169,14 @@ int main(int argc, char **argv) {
     }
 
     close(sock);
+
+    // Free allocated memory
+    for (int i = 0; i < num_topics; i++) {
+        free(current_status[i]);
+        free(topics[i]);
+    }    
+    free(current_status);
+    free(topics);
 
     log_message(LOG_PATH, "LOG", "\nSubscriber shutdown complete!\n\n");
 

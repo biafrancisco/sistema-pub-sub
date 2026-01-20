@@ -57,9 +57,9 @@ int setup_udp_socket(const char *ip, int port, struct sockaddr_in *addr, char *l
 // Map topic to status filepath
 void map_topic_to_filepath(char path[], char topic[]) {
     
-    sprintf(path, "../tmp/status%s.txt", topic);
+    sprintf(path, "./tmp/status%s.txt", topic);
 
-    for (int i = 14; path[i] != '\0'; i++) {
+    for (int i = 13; path[i] != '\0'; i++) {
         if (path[i] == '/')
             path[i] = '-';
     }

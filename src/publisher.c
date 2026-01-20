@@ -8,7 +8,7 @@
 #define MSG_SIZE (TOPIC_SIZE + TEXT_SIZE + 2)
 #define LOG_SIZE (3 * TEXT_SIZE) 
 
-#define LOG_PATH "../tmp/log/pub_log.txt"
+#define LOG_PATH "./tmp/log/pub_log.txt"
 
 int main(int argc, char **argv) {
 
