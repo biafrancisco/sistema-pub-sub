@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <arpa/inet.h>
+#include "utils.h"
+#include "logger.h"
 
 #define TOPIC_SIZE 128
 #define TEXT_SIZE 1024
@@ -21,72 +23,38 @@ int main(int argc, char **argv) {
     char config_path[TEXT_SIZE];
     char text[TEXT_SIZE];
 
-    printf("Enter configuration file path: ");
-    fgets(config_path, TEXT_SIZE, stdin);
-    config_path[strcspn(config_path, "\n")] = 0;
-    
-    FILE *config_file = fopen(config_path, "r");
-    if (!config_file) {
-        perror("Error opening file");
-        exit(1);
-    }
+    FILE *config_file = open_config_file();
 
-    fgets(text, TEXT_SIZE, config_file);
-    char* data = strchr(text, ':');
-    data++;
-    data[strcspn(data, "\n")] = 0;
+    char *role = get_config_role(config_file);
 
-    if (!strcmp("publisher", data)) {
+    if (!strcmp("publisher", role)) {
         fgets(text, TEXT_SIZE, config_file);
-        data = strchr(text, ':');
+        char *data = strchr(text, ':');
         data++;
         strncpy(topic, data, TOPIC_SIZE);
     } else {
-        fprintf(stderr, "Error: Configuration type mismatch. Expected 'publisher', got '%s'!\n", data);
+        fprintf(stderr, "Error: Configuration type mismatch. Expected 'publisher', got '%s'!\n", role);
         exit(1);
     }
 
     fclose(config_file);
 
-
-    int sock;
     char msg[MSG_SIZE];
     struct sockaddr_in subaddr;
-
-    if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        perror("Failed to create socket");
-        exit(1);
-    }
-
-    memset(&subaddr, 0, sizeof(subaddr));
-    subaddr.sin_family = AF_INET;
-    subaddr.sin_port = htons(atoi(argv[2]));
-    inet_pton(AF_INET, argv[1], &subaddr.sin_addr);
-
+    int sock = setup_udp_socket(argv[1], atoi(argv[2]), &subaddr);
 
     char status_path[TEXT_SIZE];
-    sprintf(status_path, "../tmp/status%s.txt", topic);
+    map_topic_to_filepath(status_path, topic);
 
-    for (int i = 14; status_path[i] != '\0'; i++) {
-        if (status_path[i] == '/')
-            status_path[i] = '-';
-    }
+    char current_status[TEXT_SIZE];
+    get_current_status(status_path, current_status);
 
-    char current_status[TEXT_SIZE] = "";
-
-    FILE *status_file = fopen(status_path, "r");
-    if (status_file) {
-        fgets(current_status, TEXT_SIZE, status_file);
-        fclose(status_file);
-    }
-
-    //printf("%s\n", status_path);
     bool running = true;
     int option;
 
     while (running) {
         printf("\n--- PUBLISHER MENU ---\n");
-        printf("Topic '%s' status: '%s'\n", topic, current_status ? current_status : "Unknown");
+        printf("Topic %s status: %s\n", topic, current_status);
         printf("1. Configure device\n");
         printf("2. Exit\n");
         printf("Choice: ");
@@ -101,11 +69,11 @@ int main(int argc, char **argv) {
                 fgets(text, TEXT_SIZE, stdin);
                 text[strcspn(text, "\n")] = 0;
 
-                status_file = fopen(status_path, "w");
+                FILE *status_file = fopen(status_path, "w");
                 fprintf(status_file, "%s", text);
                 fclose(status_file);
 
-                printf("Topic %s changed from %s to %s\n", topic, current_status, text);
+                printf("\nTopic %s changed from %s to %s\n", topic, current_status, text);
                 strcpy(current_status, text);
 
                 memset(msg, 0, sizeof(msg));

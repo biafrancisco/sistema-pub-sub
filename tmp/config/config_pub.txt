@@ -1,2 +1,2 @@
 role:publisher
-topic:/home/living_room/lamp_1
+topic:/home/living_room/lamp_2
